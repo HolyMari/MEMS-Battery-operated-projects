@@ -1,14 +1,13 @@
 function m = window(capture)
-acc_ss  = [ -12.456 1013.897 14.822 ]; %bias of accelerometer
 gyro_ss = [ 10.350 -525.886 329.590 ]; %bias of gyro
 a = capture.';
 timeconvertor = 1000000.0; %milisec to sec
 a(1,:) = linspace(1,size(a,2),size(a,2)) .* timeconvertor;
 start = a(1,1);
-final = a(1,end);
-time = (final - start)/timeconvertor; %total time in seconds of samples
+%final = a(1,end);
+%time = (final - start)/timeconvertor; %total time in seconds of samples
 gyro_factor = 1000.0;
-frq = length(a(1,:)) ./ time; %samples per seconds
+%frq = length(a(1,:)) ./ time; %samples per seconds
 frq = 200;
 a(1,:) = (a(1,:) - start) / timeconvertor;
 
@@ -19,16 +18,6 @@ lp = zeros(size(a));
 lp(2,:) = lowpass(a(2,:), 1 / frq, windowSize);
 lp(3,:) = lowpass(a(3,:), 1 / frq, windowSize);
 lp(4,:) = lowpass(a(4,:), 1 / frq, windowSize);
-
-%distace
-d_i = zeros(size(a));
-d_i(2,:) = lowpass((a(2,:) - acc_ss(1)) / 1000, 1 / frq, windowSize);
-d_i(3,:) = lowpass((a(3,:) - acc_ss(2)) / 1000, 1 / frq, windowSize);
-d_i(4,:) = lowpass((a(4,:) - acc_ss(3)) / 1000, 1 / frq, windowSize);
-
-%d_i(2,:) = integrator(integrator(d_i(2,:), 1 / frq), 1 / frq);
-%d_i(3,:) = integrator(integrator(d_i(3,:), 1 / frq), 1 / frq);
-%d_i(4,:) = integrator(integrator(d_i(4,:), 1 / frq), 1 / frq);
 
 %gyro - bias
 a(5,:) = a(5,:) - gyro_ss(1);
@@ -43,22 +32,6 @@ gyro(4,:) = integrator(a(7,:) / gyro_factor, 1 / frq);
 
 m_g = gyro * 180 ./ pi;  %gyro into degrees
 
-%{
-figure(4);
-subplot(3,1,1); plot(a(1,:),m_g(2,:));
-ylim([-90 90])
-title("integrator on gyro");
-xlabel("time [sec]");
-ylabel("x [c]");
-subplot(3,1,2); plot(a(1,:),m_g(3,:));
-ylim([-90 90])
-xlabel("time [sec]");
-ylabel("y [c]");
-subplot(3,1,3); plot(a(1,:),m_g(4,:));
-ylim([-90 90])
-xlabel("time [sec]");
-ylabel("z [c]");
-%}
 %gyro integral into HPF
 gyro(2,:) = highpass(gyro(2,:), 1 / frq, windowSize);
 gyro(3,:) = highpass(gyro(3,:), 1 / frq, windowSize);
@@ -67,95 +40,66 @@ gyro(4,:) = highpass(gyro(4,:), 1 / frq, windowSize);
 %complementary filter
 compl =lp + gyro;
 
-%h = zeros(size(a));
-%h(2,:) = (cumtrapz(y(2,:) - mean(y(2,:))));
-%h(3,:) = (cumtrapz(y(3,:) - mean(y(3,:))));
-%h(4,:) = (cumtrapz(y(4,:) - mean(y(4,:))));
-%h(2,:) = integrator(y(2,:), 1 / frq);
-%h(3,:) = integrator(y(3,:) , 1 / frq);
-%h(4,:) = integrator(y(4,:) , 1 / frq);
-
-%z = zeros(size(a));
-%z(2,:) = a(2,:);
-%z(3,:) = a(3,:);
-%z(4,:) = a(4,:);
-
 %angles
 pitch = atan(compl(2,:) ./ (sqrt(compl(3,:).^2 + compl(4,:).^2)));
 pitch = pitch * 180 ./ pi;
 roll = atan(compl(3,:) ./ (sqrt(compl(2,:).^2 + compl(4,:).^2)));
 roll = roll * 180 ./ pi;
-%yaw = atan( sqrt(y(2,:).^2 + y(3,:).^2) ./ (y(4,:)));
-compl(2:4,:) = compl(2:4,:)./1000 * 180 ./ pi;
+compl(2:4,:) = compl(2:4,:)./1000 * 180 ./ pi; % convert to degrees
 
 figure(1);
 subplot(3,1,1); plot(a(1,:),a(2,:));
 ylim([-1500 1500])
 title("row data - accelerometer");
-xlabel("time [sec]");
+xlabel("time [msec]");
 ylabel("x [mg]");
 subplot(3,1,2); plot(a(1,:),a(3,:));
 ylim([-1500 1500])
-xlabel("time [sec]");
+xlabel("time [msec]");
 ylabel("y [mg]");
 subplot(3,1,3); plot(a(1,:),a(4,:));
 ylim([-2000 2000])
-xlabel("time [sec]");
+xlabel("time [msec]");
 ylabel("z [mg]");
 
-figure(5);
+figure(2);
 subplot(3,1,1); plot(a(1,:),a(5,:));
 %ylim([-1500 1500])
 title("raw data - gyroscope");
-xlabel("time [sec]");
-ylabel("x [mrad/s]");
+xlabel("time [msec]");
+ylabel("x [mrad]");
 subplot(3,1,2); plot(a(1,:),a(6,:));
 %ylim([-1500 1500])
-xlabel("time [sec]");
-ylabel("y [mrad/s]");
+xlabel("time [msec]");
+ylabel("y [mrad]");
 subplot(3,1,3); plot(a(1,:),a(7,:));
 %ylim([-2000 2000])
-xlabel("time [sec]");
-ylabel("z [mrad/s]");
-
-
+xlabel("time [msec]");
+ylabel("z [mrad]");
 
 figure(3);
 subplot(3,1,1); plot(a(1,:),compl(2,:));
-%ylim([-1500 1500])
+ylim([-100 100])
 title("complementary filter");
 xlabel("time [sec]");
 ylabel("x [deg]");
 subplot(3,1,2); plot(a(1,:),compl(3,:));
-%ylim([-1500 1500])
-xlabel("time [sec]");
+ylim([-100 100])
+xlabel("time [msec]");
 ylabel("y [deg]");
 subplot(3,1,3); plot(a(1,:),compl(4,:));
-%ylim([-2000 2000])
-xlabel("time [sec]");
+ylim([-100 100])
+xlabel("time [msec]");
 ylabel("z [deg]");
 
-
-%figure(4);
-%subplot(3,1,1);
-%plot(a(1,:),h(2,:));
-%ylim([-1500 1500])
-%subplot(3,1,2);
-%plot(a(1,:),h(3,:));
-%ylim([-1500 1500])
-%subplot(3,1,3);
-%plot(a(1,:),h(4,:));
-%ylim([-2000 2000])
-
-figure(2);
+figure(4);
 subplot(2,1,[1 2]);
 %plot(a(1,:),pitch);
 plot(a(1,:),roll);
 ylim([-90 90])
 title("roll from complementary");
-xlabel("time [sec]");
+xlabel("time [msec]");
 ylabel("roll [deg]");
-%plot(a(1,:), yaw);
 
 %check if window open
 start = roll(1,1); %roll
