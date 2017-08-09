@@ -13,6 +13,11 @@ a(1,:) = (a(1,:) - start) / timeconvertor;
 
 windowSize = round(frq); 
 
+%roll angle from acc
+rollAcc = atan(a(3,:) ./ (sqrt(a(2,:).^2 + a(4,:).^2)));
+rollAcc = rollAcc * 180 ./ pi;
+lpRollAcc = lowpass(rollAcc, 1 / frq, windowSize);
+
 %accelerometer in LPF
 lp = zeros(size(a));
 lp(2,:) = lowpass(a(2,:), 1 / frq, windowSize);
@@ -24,11 +29,13 @@ a(5,:) = a(5,:) - gyro_ss(1);
 a(6,:) = a(6,:) - gyro_ss(2);
 a(7,:) = a(7,:) - gyro_ss(3);
 
+%rollGyro =  atan(a(3,:) ./ (sqrt(a(2,:).^2 + a(4,:).^2)));
+
 %gyro integration
 gyro = zeros(size(a));
-gyro(2,:) = integrator(a(5,:) / gyro_factor, 1 / frq);
-gyro(3,:) = integrator(a(6,:) / gyro_factor, 1 / frq);
-gyro(4,:) = integrator(a(7,:) / gyro_factor, 1 / frq);
+gyro(2,:) = integrator(- a(5,:) / gyro_factor, 1 / frq);
+gyro(3,:) = integrator(- a(6,:) / gyro_factor, 1 / frq);
+gyro(4,:) = integrator(- a(7,:) / gyro_factor, 1 / frq);
 
 m_g = gyro * 180 ./ pi;  %gyro into degrees
 
@@ -38,15 +45,42 @@ gyro(3,:) = highpass(gyro(3,:), 1 / frq, windowSize);
 gyro(4,:) = highpass(gyro(4,:), 1 / frq, windowSize);
 
 %complementary filter
-compl =lp + gyro;
-
+compl =lpRollAcc + gyro(3,:);
+%{
 %angles
 pitch = atan(compl(2,:) ./ (sqrt(compl(3,:).^2 + compl(4,:).^2)));
 pitch = pitch * 180 ./ pi;
 roll = atan(compl(3,:) ./ (sqrt(compl(2,:).^2 + compl(4,:).^2)));
 roll = roll * 180 ./ pi;
 compl(2:4,:) = compl(2:4,:)./1000 * 180 ./ pi; % convert to degrees
+%}
+figure(1);
+plot(a(1,:),rollAcc);
+ylim([-100 100])
+title("roll - accelerometer");
+xlabel("time [msec]");
 
+figure(2);
+subplot(3,1,1); plot(a(1,:),m_g(2,:));
+%ylim([-1500 1500])
+title("roll - gyroscope");
+xlabel("time [msec]");
+ylabel("x [mg]");
+subplot(3,1,2); plot(a(1,:),m_g(3,:));
+%ylim([-1500 1500])
+xlabel("time [msec]");
+ylabel("y [mg]");
+subplot(3,1,3); plot(a(1,:),m_g(4,:));
+%ylim([-2000 2000])
+xlabel("time [msec]");
+ylabel("z [mg]");
+
+figure(3);
+plot(a(1,:),compl);
+ylim([-100 100])
+title("roll - complementary");
+xlabel("time [msec]");
+%{
 figure(1);
 subplot(3,1,1); plot(a(1,:),a(2,:));
 ylim([-1500 1500])
@@ -100,23 +134,26 @@ ylim([-90 90])
 title("roll from complementary");
 xlabel("time [msec]");
 ylabel("roll [deg]");
-
+%}
 %check if window open
-start = roll(1,1); %roll
+start = rollAcc(1,1); %roll
 threshold = 20;
 flag =1;
-for i= 1:size(roll,2)
-    if (roll(1,i) <(start-threshold) && flag)
+
+for i= 1:size(compl,2)
+    %disp(compl(1,1));
+    if (compl(1,i) <(start-threshold) && flag)
         flag =0;
         
         disp("dani");
     else
-        if (roll(1,i) >(start- threshold/2))
+        if (compl(i) >(start- threshold/2))
             flag=1;
         end 
     end
    
 end
+
 m = 0;
 
 end 
@@ -126,7 +163,7 @@ n = size(x,2);
 RC = dt * ws;
 y = zeros(1,n);
 a = dt / (RC + dt);
-y(1) = x(1) * a;
+y(1) = x(1);
 for i = 2:n
   y(i) = a * x(i) + (1-a) * y(i-1);
 end
